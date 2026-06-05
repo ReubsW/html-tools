@@ -1,5 +1,5 @@
-import { Supabase } from './Supabase.js';
-import { Files } from './Files.js';
+import { Supabase } from './framework/Supabase.js';
+import { Files } from './framework/Files.js';
 
 export const ToolUploadService = {
   /**
