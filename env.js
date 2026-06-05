@@ -15,6 +15,6 @@
  */
 
 window.ENV = {
-  SUPABASE_URL:      '',   // e.g. 'https://xyz.supabase.co'
-  SUPABASE_ANON_KEY: '',   // e.g. 'eyJhbGci...'
+  SUPABASE_URL:      'https://cnwpoldiwutmxxdyezet.supabase.co',   // e.g. 'https://xyz.supabase.co'
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNud3BvbGRpd3V0bXh4ZHllemV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTExNjIsImV4cCI6MjA5NjE2NzE2Mn0.8fqW-2hBADJo13Pi_Z6FaLxb2hIysbLDpPLcssjV1M8',   // e.g. 'eyJhbGci...'
 };
