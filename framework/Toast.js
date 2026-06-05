@@ -9,19 +9,40 @@
  * @param {'info'|'success'|'error'} [type='info']
  * @param {number} [durationMs=3000]
  */
-export function toast(message, type = 'info', durationMs = 3000) {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
+/**
+ * Toast.js
+ * Lightweight toast notifications.
+ * Usage: context.toast('message', 'success')
+ */
 
-  const el       = document.createElement('div');
-  el.className   = `toast ${type}`;
-  el.textContent = message;
+function toast(message, type = 'info', durationMs = 3000) {
+  const container = document.getElementById('toast-container');
+
+  if (!container) {
+    console.warn('[Toast] missing #toast-container');
+    return;
+  }
+
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = String(message);
 
   container.appendChild(el);
 
+  // fade out + cleanup
   setTimeout(() => {
-    el.style.transition = 'opacity 0.3s';
-    el.style.opacity    = '0';
+    el.style.transition = 'opacity 0.3s ease';
+    el.style.opacity = '0';
+
     setTimeout(() => el.remove(), 300);
   }, durationMs);
 }
+
+/**
+ * Export BOTH styles to eliminate import mismatch issues
+ * This prevents:
+ * - named import errors
+ * - default import errors
+ */
+export { toast };
+export default toast;
