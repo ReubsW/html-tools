@@ -1,35 +1,37 @@
 export const Sandbox = {
   createContext(context) {
-    return {
+    return Object.freeze({
       console: {
         log: (...args) => console.log('[Tool]', ...args),
-        error: (...args) => console.error('[Tool]', ...args)
+        error: (...args) => console.error('[Tool]', ...args),
+        warn: (...args) => console.warn('[Tool]', ...args),
       },
+
+      toolId: context.toolId,
+      user: context.user,
 
       memory: context.memory,
       files: context.files,
       toast: context.toast,
-      user: context.user,
+
+      runtime: {
+        isAuthenticated: !!context.user,
+        mode: context.user ? 'cloud' : 'local'
+      },
 
       utils: {
         now: () => Date.now()
       }
-    };
+    });
   },
 
   async run(toolModule, container, context) {
-    const safeContext = this.createContext(context);
+    const safe = this.createContext(context);
 
-    const fn = toolModule.render;
-
-    if (typeof fn !== 'function') {
+    if (typeof toolModule.render !== 'function') {
       throw new Error('Tool missing render()');
     }
 
-    const frozenContext = Object.freeze(
-      Object.create(null, Object.getOwnPropertyDescriptors(safeContext))
-    );
-
-    return fn(container, frozenContext);
+    return toolModule.render(container, safe);
   }
 };
