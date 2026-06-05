@@ -1,59 +1,77 @@
-/**
- * App.js
- * Entry point. Initialises auth, registry, and router.
- */
-
 import { Registry } from './Registry.js';
-import { Router }   from './Router.js';
-import { Auth }     from './Auth.js';
-import { toast }    from './Toast.js';
+import { Router } from './Router.js';
+import { Auth } from './Auth.js';
+import { Supabase } from './Supabase.js';
+import { toast } from './Toast.js';
 
-// ── Import all tools here when you add them ──────────────────────
-import PTOCalculator   from '../tools/pto-calculator/index.js';
-import RentChecker     from '../tools/rent-checker/index.js';
+import { DynamicToolLoader } from '../DynamicToolLoader.js';
+import { HotReloadManager } from '../HotReloadManager.js';
+
+// Static tools (temporary layer)
+import PTOCalculator from '../tools/pto-calculator/index.js';
+import RentChecker from '../tools/rent-checker/index.js';
 import VacationPlanner from '../tools/vacation-planner/index.js';
+import ToolManager from '../tools/tool-manager/index.js';
 
 async function init() {
-  // 1. Register tools
-  Registry.register(PTOCalculator);
-  Registry.register(RentChecker);
-  Registry.register(VacationPlanner);
+  console.log('[App] booting...');
 
-  // 2. Initialise auth (non-blocking — tools work without it)
+  // 1. Init Supabase
+  Supabase.init();
+
+  // 2. Register static tools
+  registerStaticTools();
+
+  // 3. Auth init
   await Auth.init();
 
-  // 3. Build sidebar nav
-  renderNav();
+  // 4. Load dynamic tools
+  if (Auth.user) {
+    await DynamicToolLoader.init(Auth.user);
+    HotReloadManager.start(Auth.user);
+  }
 
-  // 4. Wire up auth button
-  document.getElementById('auth-btn').addEventListener('click', () => {
-    if (Auth.user) {
-      Auth.signOut();
-    } else {
-      Auth.signInWithGoogle();
+  // 5. UI
+  renderNav();
+  wireAuth();
+
+  // 6. Auth changes
+  Auth.onChange(async (user) => {
+    updateAuthUI(user);
+
+    if (user) {
+      await DynamicToolLoader.init(user);
+      HotReloadManager.start(user);
+      renderNav();
     }
   });
 
-  // 5. Listen for auth state changes
-  Auth.onChange((user) => {
-    updateAuthUI(user);
-  });
-
-  // 6. Start router (reads current hash and renders the right tool)
+  // 7. Router
   Router.init();
+
+  console.log('[App] ready');
+}
+
+function registerStaticTools() {
+  Registry.register(PTOCalculator);
+  Registry.register(RentChecker);
+  Registry.register(VacationPlanner);
+  Registry.register(ToolManager);
 }
 
 function renderNav() {
-  const nav   = document.getElementById('tool-nav');
+  const nav = document.getElementById('tool-nav');
   const tools = Registry.all();
 
-  if (tools.length === 0) {
+  if (!nav) return;
+
+  if (!tools.length) {
     nav.innerHTML = '<div class="nav-loading">no tools registered</div>';
     return;
   }
 
-  // Optional: group by category if tools define one
   const groups = {};
+
   for (const tool of tools) {
     const cat = tool.category || 'tools';
     if (!groups[cat]) groups[cat] = [];
@@ -70,42 +88,51 @@ function renderNav() {
 
     for (const tool of items) {
       const btn = document.createElement('button');
-      btn.className  = 'nav-item';
+      btn.className = 'nav-item';
       btn.dataset.id = tool.id;
-      btn.innerHTML  = `
+
+      btn.innerHTML = `
         <span class="nav-icon">${tool.icon ?? '▸'}</span>
         <span>${tool.name}</span>
       `;
-      btn.addEventListener('click', () => {
-        Router.go(tool.id);
-      });
+
+      btn.onclick = () => Router.go(tool.id);
       nav.appendChild(btn);
     }
   }
 
-  // Highlight active item when hash changes
-  window.addEventListener('hashchange', () => updateActiveNav());
+  window.addEventListener('hashchange', updateActiveNav);
   updateActiveNav();
 }
 
 function updateActiveNav() {
   const current = Router.current();
+
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.id === current);
   });
 }
 
+function wireAuth() {
+  document.getElementById('auth-btn')?.addEventListener('click', () => {
+    if (Auth.user) Auth.signOut();
+    else Auth.signInWithGoogle();
+  });
+}
+
 function updateAuthUI(user) {
   const label = document.getElementById('auth-label');
-  const btn   = document.getElementById('auth-btn');
+  const btn = document.getElementById('auth-btn');
+
+  if (!label || !btn) return;
 
   if (user) {
     label.textContent = user.email ?? 'signed in';
-    btn.textContent   = 'sign out';
+    btn.textContent = 'sign out';
     toast('signed in', 'success');
   } else {
     label.textContent = 'not signed in';
-    btn.textContent   = 'sign in';
+    btn.textContent = 'sign in';
   }
 }
 
