@@ -1,6 +1,6 @@
 import { Registry } from '../../framework/Registry.js';
 import { ToolVersionsAPI } from '../../framework/ToolVersionsAPI.js';
-import { ToolUploadService } from '../../framework/ToolUploadService.js';
+import { ToolUploadService } from '../../ToolUploadService.js';
 import { ToolDiff } from '../../framework/ToolDiff.js';
 
 export default {
