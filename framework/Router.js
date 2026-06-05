@@ -14,7 +14,10 @@ function parseHash() {
 async function render(toolId) {
   const container = document.getElementById(CONTAINER_ID);
 
-  if (!container) return;
+  if (!container) {
+    console.warn('[Router] missing tool container');
+    return;
+  }
 
   if (!toolId) {
     container.innerHTML = `
@@ -39,10 +42,6 @@ async function render(toolId) {
   }
 
   container.innerHTML = '';
-
-  // ─────────────────────────────────────────────
-  // Unified execution context (STATIC + DYNAMIC tools)
-  // ─────────────────────────────────────────────
 
   const context = buildContext(toolId);
 
@@ -70,9 +69,10 @@ function buildContext(toolId) {
 
     memory: Memory.scope(toolId),
     files: Files.scope(toolId),
-    toast: Toast,
 
-    // future-safe extension point for dynamic tools
+    // FIX: correct variable name (was Toast → undefined)
+    toast,
+
     runtime: {
       isAuthenticated: !!user,
       mode: user ? 'cloud' : 'local'
