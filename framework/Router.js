@@ -1,7 +1,7 @@
 import { Registry } from './Registry.js';
 import { Memory } from './Memory.js';
 import { Files } from './Files.js';
-import { Toast } from './Toast.js';
+import { toast } from './Toast.js';
 import { Auth } from './Auth.js';
 
 const CONTAINER_ID = 'tool-container';
