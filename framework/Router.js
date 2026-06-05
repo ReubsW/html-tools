@@ -1,27 +1,20 @@
-/**
- * Router.js
- * Hash-based router. URLs look like: /#/tool-id
- *
- * Works as a static site with no server-side routing required.
- */
-
 import { Registry } from './Registry.js';
-import { Memory }   from './Memory.js';
-import { Files }    from './Files.js';
-import { toast }    from './Toast.js';
+import { Memory } from './Memory.js';
+import { Files } from './Files.js';
+import { Toast } from './Toast.js';
+import { Auth } from './Auth.js';
 
 const CONTAINER_ID = 'tool-container';
 
 function parseHash() {
-  // /#/tool-id  → 'tool-id'
-  // /#/         → ''
-  // (empty)     → ''
-  const hash = window.location.hash; // e.g. "#/rent-checker"
+  const hash = window.location.hash;
   return hash.replace(/^#\/?/, '') || '';
 }
 
 async function render(toolId) {
   const container = document.getElementById(CONTAINER_ID);
+
+  if (!container) return;
 
   if (!toolId) {
     container.innerHTML = `
@@ -45,27 +38,46 @@ async function render(toolId) {
     return;
   }
 
-  // Clear previous tool
   container.innerHTML = '';
 
-  // Build the context object every tool receives
-  const context = {
-    memory: Memory.scope(toolId),
-    files:  Files.scope(toolId),
-    toast,
-  };
+  // ─────────────────────────────────────────────
+  // Unified execution context (STATIC + DYNAMIC tools)
+  // ─────────────────────────────────────────────
+
+  const context = buildContext(toolId);
 
   try {
     await tool.render(container, context);
   } catch (err) {
-    console.error(`[Router] error rendering tool "${toolId}":`, err);
+    console.error(`[Router] tool crash: ${toolId}`, err);
+
     container.innerHTML = `
       <div class="empty-state">
         <p class="empty-icon">⚠</p>
-        <p class="empty-text">tool crashed — check the console</p>
+        <p class="empty-text">tool crashed — check console</p>
       </div>
     `;
   }
+}
+
+function buildContext(toolId) {
+  const user = Auth.user;
+
+  return {
+    toolId,
+
+    user: user ?? null,
+
+    memory: Memory.scope(toolId),
+    files: Files.scope(toolId),
+    toast: Toast,
+
+    // future-safe extension point for dynamic tools
+    runtime: {
+      isAuthenticated: !!user,
+      mode: user ? 'cloud' : 'local'
+    }
+  };
 }
 
 export const Router = {
@@ -73,7 +85,7 @@ export const Router = {
     window.addEventListener('hashchange', () => {
       render(parseHash());
     });
-    // Render whatever is in the URL on first load
+
     render(parseHash());
   },
 
@@ -83,5 +95,5 @@ export const Router = {
 
   current() {
     return parseHash();
-  },
+  }
 };
