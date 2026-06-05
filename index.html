@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>html-tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="public/app.css" />
+
+  <!-- Supabase via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Import map so tools can use bare specifiers -->
+  <script type="importmap">
+    {
+      "imports": {
+        "framework/": "./framework/",
+        "utils/": "./utils/",
+        "tools/": "./tools/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <div id="app">
+    <aside id="sidebar">
+      <header id="brand">
+        <span class="brand-mark">▣</span>
+        <span class="brand-name">html-tools</span>
+      </header>
+
+      <nav id="tool-nav">
+        <!-- Populated by Registry -->
+        <div class="nav-loading">loading tools…</div>
+      </nav>
+
+      <footer id="sidebar-footer">
+        <div id="auth-status">
+          <span id="auth-label">not signed in</span>
+          <button id="auth-btn" class="btn-ghost">sign in</button>
+        </div>
+      </footer>
+    </aside>
+
+    <main id="tool-viewport">
+      <div id="tool-container">
+        <div class="empty-state">
+          <p class="empty-icon">▣</p>
+          <p class="empty-text">select a tool to begin</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Credentials: fill in env.js (gitignored) -->
+  <script src="env.js"></script>
+  <script type="module" src="framework/App.js"></script>
+</body>
+</html>

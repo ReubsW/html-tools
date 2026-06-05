@@ -1,0 +1,15 @@
+# Don't commit credentials
+env.js
+
+# Node (if you ever add a build step)
+node_modules/
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
