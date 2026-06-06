@@ -1,29 +1,15 @@
-import { Supabase } from './framework/Supabase.js';
-import { Files } from './framework/Files.js';
+import { ToolLibrary } from './framework/ToolLibrary.js';
 
 export const ToolRollbackService = {
   async rollback(userId, toolId, version) {
-    const { data } = await Supabase.client()
-      .from('tool_versions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('tool_id', toolId)
-      .eq('version', version)
-      .single();
+    const versions = await ToolLibrary.listVersions(userId, toolId);
+    const match = versions.find(v => v.version === version);
 
-    const file = await Files.download(data.storage_path);
-    const code = await file.text();
+    if (!match) {
+      throw new Error(`[ToolRollback] version not found: ${toolId} v${version}`);
+    }
 
-    const restorePath = `_registry/${userId}/${toolId}.js`;
-
-    await Files.upload(restorePath, code);
-
-    await Supabase.client()
-      .from('tools')
-      .update({ version })
-      .eq('id', toolId)
-      .eq('user_id', userId);
-
+    await ToolLibrary.restoreVersion(userId, toolId, match);
     return true;
   }
 };

@@ -25,6 +25,47 @@ function requireClient() {
   return db;
 }
 
+function uploadExact(path, data, { contentType, upsert = true } = {}) {
+  const db = requireClient();
+
+  return db.storage
+    .from(BUCKET)
+    .upload(path, data, { contentType, upsert });
+}
+
+function downloadExact(path) {
+  const db = requireClient();
+
+  return db.storage
+    .from(BUCKET)
+    .download(path);
+}
+
+function urlExact(path, expiresInSeconds = 3600) {
+  const db = requireClient();
+
+  if (expiresInSeconds === 0) {
+    const { data } = db.storage.from(BUCKET).getPublicUrl(path);
+    return Promise.resolve(data.publicUrl);
+  }
+
+  return db.storage
+    .from(BUCKET)
+    .createSignedUrl(path, expiresInSeconds)
+    .then(({ data, error }) => {
+      if (error) throw new Error(`[Files] url failed: ${error.message}`);
+      return data.signedUrl;
+    });
+}
+
+function deleteExact(path) {
+  const db = requireClient();
+
+  return db.storage
+    .from(BUCKET)
+    .remove([path]);
+}
+
 function createScope(toolId) {
   return {
     /**
@@ -37,12 +78,9 @@ function createScope(toolId) {
      * @returns {Promise<{ path: string }>}
      */
     async upload(filename, data, { contentType, upsert = true } = {}) {
-      const db   = requireClient();
       const path = scopedPath(toolId, filename);
 
-      const { data: result, error } = await db.storage
-        .from(BUCKET)
-        .upload(path, data, { contentType, upsert });
+      const { data: result, error } = await uploadExact(path, data, { contentType, upsert });
 
       if (error) throw new Error(`[Files] upload failed: ${error.message}`);
       return { path: result.path };
@@ -54,12 +92,9 @@ function createScope(toolId) {
      * @returns {Promise<Blob>}
      */
     async download(filename) {
-      const db   = requireClient();
       const path = scopedPath(toolId, filename);
 
-      const { data, error } = await db.storage
-        .from(BUCKET)
-        .download(path);
+      const { data, error } = await downloadExact(path);
 
       if (error) throw new Error(`[Files] download failed: ${error.message}`);
       return data; // Blob
@@ -72,20 +107,8 @@ function createScope(toolId) {
      * @returns {Promise<string>}
      */
     async url(filename, expiresInSeconds = 3600) {
-      const db   = requireClient();
       const path = scopedPath(toolId, filename);
-
-      if (expiresInSeconds === 0) {
-        const { data } = db.storage.from(BUCKET).getPublicUrl(path);
-        return data.publicUrl;
-      }
-
-      const { data, error } = await db.storage
-        .from(BUCKET)
-        .createSignedUrl(path, expiresInSeconds);
-
-      if (error) throw new Error(`[Files] url failed: ${error.message}`);
-      return data.signedUrl;
+      return urlExact(path, expiresInSeconds);
     },
 
     /**
@@ -110,12 +133,9 @@ function createScope(toolId) {
      * @returns {Promise<void>}
      */
     async delete(filename) {
-      const db   = requireClient();
       const path = scopedPath(toolId, filename);
 
-      const { error } = await db.storage
-        .from(BUCKET)
-        .remove([path]);
+      const { error } = await deleteExact(path);
 
       if (error) throw new Error(`[Files] delete failed: ${error.message}`);
     },
@@ -123,6 +143,22 @@ function createScope(toolId) {
 }
 
 export const Files = {
+  upload(path, data, opts) {
+    return uploadExact(path, data, opts);
+  },
+
+  download(path) {
+    return downloadExact(path);
+  },
+
+  url(path, expiresInSeconds) {
+    return urlExact(path, expiresInSeconds);
+  },
+
+  delete(path) {
+    return deleteExact(path);
+  },
+
   scope(toolId) {
     return createScope(toolId);
   },

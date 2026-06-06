@@ -12,6 +12,9 @@ html-tools/
 ├── env.js                  Supabase credentials (gitignored)
 ├── vercel.json             Static site routing
 ├── supabase-schema.sql     Database setup (run once)
+├── package.json            Local dev server script
+├── scripts/dev-server.mjs  Dependency-free static server
+├── docs/workspace-setup.md  Working notes for the current checkout
 │
 ├── public/
 │   └── app.css             All shared styles + design system
@@ -24,6 +27,7 @@ html-tools/
 │   ├── Files.js            Supabase Storage abstraction
 │   ├── Auth.js             Google OAuth via Supabase
 │   ├── Supabase.js         Supabase client singleton
+│   ├── ToolLibrary.js      HTML tool storage + versions + runtime loader
 │   └── Toast.js            Notification helper
 │
 ├── utils/
@@ -44,7 +48,12 @@ html-tools/
 
 ## Adding a new tool
 
-1. Create `tools/my-tool/index.js`:
+The app supports two layers of tools:
+
+- Static JS tools live in `tools/` and are registered at startup.
+- Saved HTML tools are created in the Tool Manager, previewed in an iframe, and stored in Supabase Storage.
+
+For a static JS tool, create `tools/my-tool/index.js`:
 
 ```js
 export default {
@@ -76,6 +85,8 @@ Registry.register(MyTool);
 ```
 
 That's it. The sidebar, routing, memory, and file access are all provided automatically.
+
+For an HTML tool, open Tool Manager, paste or import the HTML, preview it, then save it to the library. The saved tool becomes a normal sidebar item and is reloaded from Supabase on sign-in.
 
 ---
 
