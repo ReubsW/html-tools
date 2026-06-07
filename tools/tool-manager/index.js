@@ -9,31 +9,11 @@ const STARTER_HTML = `<!doctype html>
   <title>New Tool</title>
   <style>
     :root { color-scheme: light; }
-    body {
-      font-family: system-ui, sans-serif;
-      padding: 24px;
-      margin: 0;
-      color: #111;
-      background: #f5f4ef;
-    }
-    .shell {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 24px;
-      border: 1px solid #d7d2c7;
-      border-radius: 12px;
-      background: #fff;
-    }
+    body { font-family: system-ui, sans-serif; padding: 24px; margin: 0; color: #111; background: #f5f4ef; }
+    .shell { max-width: 720px; margin: 0 auto; padding: 24px; border: 1px solid #d7d2c7; border-radius: 12px; background: #fff; }
     h1 { margin: 0 0 12px; font-size: 28px; }
     p { margin: 0 0 16px; line-height: 1.5; }
-    button {
-      border: 0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      background: #111;
-      color: #fff;
-      cursor: pointer;
-    }
+    button { border: 0; border-radius: 8px; padding: 10px 14px; background: #111; color: #fff; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -46,7 +26,6 @@ const STARTER_HTML = `<!doctype html>
 </html>`;
 
 const DRAFT_KEY = 'draft';
-const DEFAULT_AI_ENDPOINT = '/api/tool-manager/generate';
 
 function escapeHtml(value = '') {
   return String(value)
@@ -73,15 +52,7 @@ function blankHtml(message) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Preview</title>
   <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      font-family: system-ui, sans-serif;
-      color: #666;
-      background: #f3f0e8;
-    }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; color: #666; background: #f3f0e8; }
   </style>
 </head>
 <body>${message}</body>
@@ -90,15 +61,12 @@ function blankHtml(message) {
 
 function normalizeHtml(html, title = 'Preview') {
   const source = String(html ?? '').trim();
-
   if (!source) {
     return blankHtml('Paste HTML to preview it here');
   }
-
   if (/<!doctype/i.test(source) || /<html[\s>]/i.test(source)) {
     return source;
   }
-
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -107,7 +75,7 @@ function normalizeHtml(html, title = 'Preview') {
   <title>${escapeHtml(title)}</title>
 </head>
 <body>
-${source}
+  ${source}
 </body>
 </html>`;
 }
@@ -120,7 +88,6 @@ function normalizeDraft(raw = {}) {
     id: String(raw.id || '').trim(),
     category: String(raw.category || 'tools').trim() || 'tools',
     commit_message: String(raw.commit_message || 'new tool').trim() || 'new tool',
-    prompt: String(raw.prompt || '').trim(),
     html: String(raw.html || STARTER_HTML),
   };
 }
@@ -141,7 +108,6 @@ function normalizeToolMeta(draft) {
 function buildReviewMessage({ userId, draft }) {
   const scope = userId ? 'cloud save' : 'local draft';
   const action = userId ? 'save this tool to your library' : 'keep this draft in this browser';
-
   return `
     <div class="tool-manager-review-copy">
       <div class="tool-manager-review-title">Review before you ${userId ? 'save' : 'keep'}</div>
@@ -166,12 +132,10 @@ export default {
   async render(container, context) {
     const userId = context.user?.id || null;
     const isSignedIn = !!userId;
-    const aiEndpoint = window.ENV?.TOOL_MANAGER_AI_ENDPOINT || DEFAULT_AI_ENDPOINT;
 
     container.innerHTML = `
       <div class="tool-manager-shell">
         <div id="tool-manager-banner" class="tool-manager-banner" hidden></div>
-
         <div class="tool-manager">
           <aside class="tool-manager-panel tool-manager-sidebar">
             <div class="tool-manager-panel-head">
@@ -208,15 +172,12 @@ export default {
               <div class="tool-manager-ai">
                 <div class="tool-manager-ai-head">
                   <div>
-                    <div class="tool-manager-label">AI generator</div>
-                    <div class="tool-manager-title">Prompt a tool draft</div>
+                    <div class="tool-manager-label">Templates</div>
+                    <div class="tool-manager-title">Quick Start</div>
                   </div>
-                  <span id="tool-manager-ai-status" class="tool-manager-status">ready</span>
                 </div>
-                <textarea id="tool-manager-prompt" class="tool-manager-prompt" placeholder="Describe the tool you want. Example: a savings goal tracker with a progress bar and reset button."></textarea>
-                <div class="tool-manager-ai-actions">
-                  <button id="tool-manager-generate" class="btn btn-secondary" type="button">Generate draft</button>
-                  <button id="tool-manager-starter" class="btn btn-ghost" type="button">Insert starter</button>
+                <div class="tool-manager-ai-actions" style="margin-top: 12px;">
+                  <button id="tool-manager-starter" class="btn btn-secondary" type="button">Insert Starter HTML</button>
                 </div>
               </div>
 
@@ -282,8 +243,6 @@ export default {
     const editorEl = container.querySelector('#tool-manager-editor');
     const previewEl = container.querySelector('#tool-manager-preview');
     const statusEl = container.querySelector('#tool-manager-status');
-    const aiStatusEl = container.querySelector('#tool-manager-ai-status');
-    const promptEl = container.querySelector('#tool-manager-prompt');
     const nameEl = container.querySelector('#tool-manager-name');
     const idEl = container.querySelector('#tool-manager-id');
     const categoryEl = container.querySelector('#tool-manager-category');
@@ -291,7 +250,6 @@ export default {
     const newBtn = container.querySelector('#tool-manager-new');
     const previewSaveBtn = container.querySelector('#tool-manager-preview-save');
     const importBtn = container.querySelector('#tool-manager-import');
-    const generateBtn = container.querySelector('#tool-manager-generate');
     const starterBtn = container.querySelector('#tool-manager-starter');
     const fileInput = container.querySelector('#tool-manager-file');
     const reviewEl = container.querySelector('#tool-manager-review');
@@ -330,18 +288,12 @@ export default {
       statusEl.dataset.tone = tone;
     }
 
-    function setAiStatus(message, tone = 'info') {
-      aiStatusEl.textContent = message;
-      aiStatusEl.dataset.tone = tone;
-    }
-
     function setForm(tool = {}, { lockId = false, persist = true } = {}) {
       nameEl.value = tool.name || '';
       idEl.value = tool.id || '';
       idEl.readOnly = lockId;
       categoryEl.value = tool.category || 'tools';
       commitEl.value = tool.commit_message || 'new tool';
-
       if (persist) scheduleDraftSave();
     }
 
@@ -353,7 +305,6 @@ export default {
         id: idEl.value,
         category: categoryEl.value,
         commit_message: commitEl.value,
-        prompt: promptEl.value,
         html: editorEl.value,
       });
     }
@@ -362,35 +313,27 @@ export default {
       draft = normalizeDraft(nextDraft);
       selectedToolId = draft.selectedToolId;
       setForm(draft, { lockId: draft.mode === 'tool' && !!draft.selectedToolId, persist: false });
-      promptEl.value = draft.prompt || '';
       setEditor(draft.html || STARTER_HTML, { persist: false });
-
       if (draft.mode === 'tool' && draft.selectedToolId) {
         setStatus(`editing ${draft.name || draft.selectedToolId}`);
       } else {
         setStatus('draft loaded');
       }
-
       renderToolList();
       renderVersions();
-
       if (persist) scheduleDraftSave(true);
     }
 
-    function scheduleDraftSave(immediate = false) {
+    尊unction scheduleDraftSave(immediate = false) {
       draft = normalizeDraft(readDraft());
-
       if (saveTimer) {
         clearTimeout(saveTimer);
       }
-
       const save = () => context.memory.set(DRAFT_KEY, draft);
-
       if (immediate) {
         save();
         return;
       }
-
       saveTimer = setTimeout(save, 120);
     }
 
@@ -403,7 +346,6 @@ export default {
       } catch (error) {
         console.warn('[ToolManager] failed to load draft', error);
       }
-
       return normalizeDraft();
     }
 
@@ -412,23 +354,19 @@ export default {
         bannerEl.hidden = false;
         bannerEl.innerHTML = `
           <div class="tool-manager-banner-copy">
-            <strong>Local draft mode.</strong>
-            <span>You can keep working in this browser, but saving to the library, version history, and device sync all require sign in.</span>
+            <strong>Local draft mode.</strong> <span>You can keep working in this browser, but saving to the library, version history, and device sync all require sign in.</span>
           </div>
           <button id="tool-manager-banner-signin" class="btn btn-primary" type="button">Sign in to sync</button>
         `;
-
         bannerEl.querySelector('#tool-manager-banner-signin')?.addEventListener('click', () => {
           Auth.signInWithGoogle();
         });
         return;
       }
-
       bannerEl.hidden = false;
       bannerEl.innerHTML = `
         <div class="tool-manager-banner-copy">
-          <strong>Signed in and ready to publish.</strong>
-          <span>Your draft will sync to this account and your saved tools will appear in the library.</span>
+          <strong>Signed in and ready to publish.</strong> <span>Your draft will sync to this account and your saved tools will appear in the library.</span>
         </div>
       `;
     }
@@ -443,14 +381,11 @@ export default {
         `;
         return;
       }
-
       if (!toolRows.length) {
         listEl.innerHTML = '<div class="tool-manager-empty">No saved tools yet.</div>';
         return;
       }
-
       listEl.innerHTML = '';
-
       for (const tool of toolRows) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -469,14 +404,11 @@ export default {
         versionsEl.innerHTML = '<div class="tool-manager-empty">Sign in to see history.</div>';
         return;
       }
-
       if (!selectedVersionRows.length) {
         versionsEl.innerHTML = '<div class="tool-manager-empty">No versions yet.</div>';
         return;
       }
-
       versionsEl.innerHTML = '';
-
       for (const versionRow of selectedVersionRows) {
         const row = document.createElement('div');
         row.className = 'tool-manager-version';
@@ -490,13 +422,11 @@ export default {
             <button type="button" class="btn btn-ghost">Restore</button>
           </div>
         `;
-
         const buttons = row.querySelectorAll('button');
         buttons[0].onclick = () => {
           setEditor(versionRow.html || '', { persist: true });
           setStatus(`loaded v${versionRow.version}`);
         };
-
         buttons[1].onclick = async () => {
           try {
             await ToolLibrary.restoreVersion(userId, versionRow.tool_id, versionRow);
@@ -507,7 +437,6 @@ export default {
             context.toast(error.message || 'restore failed', 'error');
           }
         };
-
         versionsEl.appendChild(row);
       }
     }
@@ -518,14 +447,12 @@ export default {
         renderVersions();
         return;
       }
-
       try {
         selectedVersionRows = await ToolLibrary.listVersions(userId, toolId);
       } catch (error) {
         console.error(error);
         selectedVersionRows = [];
       }
-
       renderVersions();
     }
 
@@ -533,20 +460,16 @@ export default {
       if (!isSignedIn) {
         return;
       }
-
       const tool = toolRows.find(row => row.id === toolId);
       if (!tool) {
         return;
       }
-
       selectedToolId = toolId;
       renderToolList();
       setForm(tool, { lockId: true, persist: false });
-
       try {
         const html = await ToolLibrary.loadToolHtml(userId, toolId, tool.config?.entry_file || ToolLibrary.entryFile);
         setEditor(html || STARTER_HTML, { persist: false });
-        promptEl.value = '';
         draft = normalizeDraft({
           mode: 'tool',
           selectedToolId: toolId,
@@ -554,7 +477,6 @@ export default {
           id: tool.id,
           category: tool.category,
           commit_message: tool.commit_message || 'update tool',
-          prompt: '',
           html: html || STARTER_HTML,
         });
         scheduleDraftSave(true);
@@ -564,7 +486,6 @@ export default {
         setEditor(blankHtml('Could not load this tool from storage.'), { persist: false });
         context.toast(error.message || 'failed to load tool', 'error');
       }
-
       await loadVersionsForTool(toolId);
     }
 
@@ -578,10 +499,8 @@ export default {
         id: '',
         category: 'tools',
         commit_message: 'new tool',
-        prompt: promptEl.value || '',
         html: STARTER_HTML,
       });
-
       renderToolList();
       renderVersions();
       setForm(draft, { lockId: false, persist: false });
@@ -593,17 +512,14 @@ export default {
     function openReviewModal(mode) {
       const nextDraft = normalizeDraft(readDraft());
       const toolMeta = normalizeToolMeta(nextDraft);
-
       pendingSave = {
         draft: nextDraft,
         tool: toolMeta,
         html: normalizeHtml(nextDraft.html, nextDraft.name || 'Preview'),
       };
-
       reviewMode = mode;
       reviewCopyEl.innerHTML = buildReviewMessage({ userId, draft: nextDraft });
       setReviewPreview(pendingSave.html);
-
       reviewConfirmBtn.textContent = isSignedIn ? 'Save Tool' : 'Keep Local Draft';
       reviewEl.hidden = false;
     }
@@ -641,7 +557,7 @@ export default {
           ...normalizeToolMeta(snapshot),
           icon: '*',
         }, html);
-
+        
         selectedToolId = snapshot.id;
         draft = normalizeDraft({
           ...snapshot,
@@ -650,7 +566,6 @@ export default {
           html,
         });
         scheduleDraftSave(true);
-
         context.toast(`saved ${snapshot.name}`, 'success');
         closeReviewModal();
         await refreshTools(result.toolId || snapshot.id);
@@ -658,7 +573,7 @@ export default {
         console.error(error);
         context.toast(error.message || 'save failed', 'error');
         setStatus('save failed', 'error');
-      } finally {
+      } finaly {
         previewSaveBtn.disabled = false;
         reviewConfirmBtn.disabled = false;
       }
@@ -670,7 +585,6 @@ export default {
         selectedVersionRows = [];
         renderToolList();
         renderVersions();
-
         const storedDraft = await loadDraft();
         const nextDraft = storedDraft || normalizeDraft({
           mode: 'draft',
@@ -679,7 +593,6 @@ export default {
           commit_message: 'new tool',
           html: STARTER_HTML,
         });
-
         applyDraft(nextDraft, { persist: false });
         setStatus('draft ready');
         return;
@@ -713,7 +626,6 @@ export default {
       }
 
       const candidateId = nextToolId || selectedToolId || toolRows[0]?.id || null;
-
       if (candidateId) {
         await selectTool(candidateId);
       } else {
@@ -723,88 +635,10 @@ export default {
           category: 'tools',
           commit_message: 'new tool',
         }, { lockId: false, persist: false });
-        promptEl.value = '';
         setEditor(STARTER_HTML, { persist: false });
         renderVersions();
         setStatus('new draft');
         scheduleDraftSave(true);
-      }
-    }
-
-    async function generateWithAi() {
-      const prompt = promptEl.value.trim();
-
-      if (!prompt) {
-        context.toast('add a prompt first', 'error');
-        return;
-      }
-
-      setAiStatus('generating');
-      generateBtn.disabled = true;
-
-      try {
-        const response = await fetch(aiEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt,
-            currentHtml: editorEl.value,
-            currentTool: {
-              name: nameEl.value,
-              id: idEl.value,
-              category: categoryEl.value,
-              commit_message: commitEl.value,
-            },
-          }),
-        });
-
-        const payload = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          throw new Error(payload?.error || payload?.message || `AI generation failed (${response.status})`);
-        }
-
-        const tool = payload?.tool || {};
-        const html = payload?.html || payload?.draft?.html || '';
-
-        nameEl.value = tool.name || nameEl.value || '';
-        idEl.value = tool.id || slugify(tool.name || nameEl.value || 'new-tool');
-        categoryEl.value = tool.category || categoryEl.value || 'tools';
-        commitEl.value = tool.commit_message || 'generated tool';
-        promptEl.value = prompt;
-
-        selectedToolId = null;
-        setForm({
-          name: nameEl.value,
-          id: idEl.value,
-          category: categoryEl.value,
-          commit_message: commitEl.value,
-        }, { lockId: false, persist: false });
-        setEditor(html || STARTER_HTML, { persist: false });
-        draft = normalizeDraft({
-          mode: 'draft',
-          selectedToolId: null,
-          name: nameEl.value,
-          id: idEl.value,
-          category: categoryEl.value,
-          commit_message: commitEl.value,
-          prompt,
-          html: html || STARTER_HTML,
-        });
-        scheduleDraftSave(true);
-        renderToolList();
-        renderVersions();
-        setStatus('ai draft ready');
-        setAiStatus('ready');
-        context.toast('AI draft generated', 'success');
-      } catch (error) {
-        console.error(error);
-        setAiStatus('error', 'error');
-        context.toast(error.message || 'AI generation failed', 'error');
-      } finally {
-        generateBtn.disabled = false;
       }
     }
 
@@ -818,20 +652,17 @@ export default {
       scheduleDraftSave();
     });
 
-    [nameEl, idEl, categoryEl, commitEl, promptEl].forEach(el => {
+    [nameEl, idEl, categoryEl, commitEl].forEach(el => {
       el.addEventListener('input', () => {
-        if (el === nameEl || el === categoryEl || el === commitEl || el === promptEl) {
+        if (el === nameEl || el === categoryEl || el === commitEl) {
           setPreview(editorEl.value);
         }
-
         if (el === nameEl && !selectedToolId) {
           idEl.value = slugify(nameEl.value || 'new-tool');
         }
-
         if (el === commitEl) {
           setStatus('editing');
         }
-
         scheduleDraftSave();
       });
     });
@@ -841,7 +672,6 @@ export default {
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files?.[0];
       if (!file) return;
-
       const html = await file.text();
       setEditor(html, { persist: true });
       setStatus(`imported ${file.name}`);
@@ -849,7 +679,6 @@ export default {
     });
 
     starterBtn.addEventListener('click', () => {
-      promptEl.value = '';
       setForm({
         name: '',
         id: '',
@@ -866,14 +695,13 @@ export default {
 
     newBtn.addEventListener('click', resetForNewTool);
 
-    generateBtn.addEventListener('click', generateWithAi);
-
     previewSaveBtn.addEventListener('click', () => {
       openReviewModal(isSignedIn ? 'cloud' : 'local');
     });
 
     reviewCloseBtn.addEventListener('click', closeReviewModal);
     reviewConfirmBtn.addEventListener('click', saveCurrentDraft);
+
     reviewEl.addEventListener('click', (event) => {
       if (event.target === reviewEl) {
         closeReviewModal();
@@ -890,7 +718,6 @@ export default {
         category: 'tools',
         commit_message: 'new tool',
       }, { lockId: false, persist: false });
-      promptEl.value = '';
       setEditor(STARTER_HTML, { persist: false });
       draft = await loadDraft();
       applyDraft(draft, { persist: false });
