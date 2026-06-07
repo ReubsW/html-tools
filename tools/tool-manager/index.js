@@ -27,8 +27,14 @@ const STARTER_HTML = `<!doctype html>
 
 const DRAFT_KEY = 'draft';
 
-// Define known core app defaults to manage visibility of the Revert button
-const KNOWN_DEFAULTS = ['calculator', 'json-formatter', 'color-picker'];
+// Define the static source material for the default tools so they can be loaded cleanly
+const APP_DEFAULTS = [
+  { id: 'calculator', slug: 'calculator', name: 'Calculator', category: 'tools', html: STARTER_HTML },
+  { id: 'json-formatter', slug: 'json-formatter', name: 'JSON Formatter', category: 'tools', html: STARTER_HTML },
+  { id: 'color-picker', slug: 'color-picker', name: 'Color Picker', category: 'tools', html: STARTER_HTML }
+];
+
+const KNOWN_DEFAULTS = APP_DEFAULTS.map(d => d.slug);
 
 function escapeHtml(value = '') {
   return String(value)
@@ -97,8 +103,13 @@ function normalizeDraft(raw = {}) {
 
 function normalizeToolMeta(draft) {
   const generatedSlug = slugify(draft.name || 'new-tool');
+  
+  // If the active tool ID matches a known default string placeholder, 
+  // we strip it to undefined so Supabase handles an INSERT instead of an UPDATE
+  const isCoreDefaultPlaceholder = KNOWN_DEFAULTS.includes(draft.selectedToolId);
+  
   return {
-    id: draft.selectedToolId || undefined, 
+    id: isCoreDefaultPlaceholder ? undefined : (draft.selectedToolId || undefined), 
     slug: generatedSlug,                   
     name: String(draft.name || '').trim(),
     description: '',
@@ -298,7 +309,9 @@ export default {
     }
 
     function updateRevertButtonVisibility(toolSlug) {
-      if (selectedToolId && KNOWN_DEFAULTS.includes(toolSlug)) {
+      // Show revert only if we are editing a custom DB override for a default slug
+      const hasDatabaseRow = toolRows.some(row => row.id === selectedToolId && !KNOWN_DEFAULTS.includes(row.id));
+      if (hasDatabaseRow && KNOWN_DEFAULTS.includes(toolSlug)) {
         revertBtn.hidden = false;
       } else {
         revertBtn.hidden = true;
@@ -394,9 +407,13 @@ export default {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = `tool-manager-item${tool.id === selectedToolId ? ' is-active' : ''}`;
+        
+        const isDbOverride = !KNOWN_DEFAULTS.includes(tool.id) && KNOWN_DEFAULTS.includes(tool.slug);
+        const formatLabel = isDbOverride ? '✨ Modified Default' : (KNOWN_DEFAULTS.includes(tool.id) ? 'Core Default' : (tool.category || 'tools'));
+
         button.innerHTML = `
           <span class="tool-manager-item-name">${escapeHtml(tool.name)}</span>
-          <span class="tool-manager-item-meta">${escapeHtml(tool.category || 'tools')}</span>
+          <span class="tool-manager-item-meta">${escapeHtml(formatLabel)}</span>
         `;
         button.onclick = () => selectTool(tool.id);
         listEl.appendChild(button);
@@ -406,6 +423,11 @@ export default {
     function renderVersions() {
       if (!isSignedIn) {
         versionsEl.innerHTML = '<div class="tool-manager-empty">Sign in to see history.</div>';
+        return;
+      }
+      // Core stock placeholders don't have interactive DB versions yet
+      if (KNOWN_DEFAULTS.includes(selectedToolId)) {
+        versionsEl.innerHTML = '<div class="tool-manager-empty">Baseline stock version. Edit and save to create custom history checkpoints.</div>';
         return;
       }
       if (!selectedVersionRows.length) {
@@ -446,7 +468,7 @@ export default {
     }
 
     async function loadVersionsForTool(toolId) {
-      if (!isSignedIn || !toolId) {
+      if (!isSignedIn || !toolId || KNOWN_DEFAULTS.includes(toolId)) {
         selectedVersionRows = [];
         renderVersions();
         return;
@@ -472,6 +494,25 @@ export default {
       renderToolList();
       setForm(tool, { persist: false });
       updateRevertButtonVisibility(tool.slug);
+
+      // If it's a default placeholder string, load its localized base code directly
+      if (KNOWN_DEFAULTS.includes(toolId)) {
+        setEditor(tool.html || STARTER_HTML, { persist: false });
+        draft = normalizeDraft({
+          mode: 'tool',
+          selectedToolId: toolId,
+          name: tool.name,
+          id: toolId,
+          category: tool.category,
+          commit_message: 'customize default tool',
+          html: tool.html || STARTER_HTML,
+        });
+        scheduleDraftSave(true);
+        setStatus(`loaded factory default ${tool.name}`);
+        selectedVersionRows = [];
+        renderVersions();
+        return;
+      }
 
       try {
         const html = await ToolLibrary.loadToolHtml(userId, toolId, tool.config?.entry_file || ToolLibrary.entryFile);
@@ -598,15 +639,17 @@ export default {
       const currentTool = toolRows.find(row => row.id === selectedToolId);
       if (!currentTool) return;
 
-      const confirmRevert = confirm(`Are you sure you want to discard your iterations on "${currentTool.name}" and revert back to the pristine default setup?`);
+      const confirmRevert = confirm(`Are you sure you want to discard your custom versions of "${currentTool.name}" and revert back to the pristine default setup?`);
       if (!confirmRevert) return;
 
       try {
         setStatus('reverting');
         await ToolLibrary.deleteTool(userId, selectedToolId);
         context.toast(`Reverted ${currentTool.name} to default`, 'success');
-        selectedToolId = null;
-        await refreshTools();
+        
+        // Target the baseline stock slug object variant for the selection redirection
+        selectedToolId = currentTool.slug;
+        await refreshTools(selectedToolId);
       } catch (error) {
         console.error(error);
         context.toast(error.message || 'failed to revert tool', 'error');
@@ -634,7 +677,15 @@ export default {
         return;
       }
 
-      toolRows = await ToolLibrary.listActiveTools(userId);
+      // 1. Fetch user-owned entries from database library
+      const rawUserRows = await ToolLibrary.listActiveTools(userId) || [];
+      
+      // 2. Identify which core default configurations haven't been overridden yet
+      const overriddenSlugs = rawUserRows.map(r => r.slug);
+      const remainingDefaults = APP_DEFAULTS.filter(def => !overriddenSlugs.includes(def.slug));
+
+      // 3. Merge active database items and pristine default entries into one unified list
+      toolRows = [...rawUserRows, ...remainingDefaults];
       renderToolList();
 
       const storedDraft = await loadDraft();
