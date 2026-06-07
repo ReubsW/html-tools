@@ -20,29 +20,29 @@ import { Supabase } from './Supabase.js';
 
 // ── Internal helpers ─────────────────────────────────────────────
 
-function localKey(toolId, key) {
-  return `ht:${toolId}:${key}`;
+function localKey(toolId, memory_key) {
+  return `ht:${toolId}:${memory_key}`;
 }
 
-function localGet(toolId, key) {
+function localGet(toolId, memory_key) {
   try {
-    const raw = localStorage.getItem(localKey(toolId, key));
+    const raw = localStorage.getItem(localKey(toolId, memory_key));
     return raw !== null ? JSON.parse(raw) : undefined;
   } catch {
     return undefined;
   }
 }
 
-function localSet(toolId, key, value) {
+function localSet(toolId, memory_key, value) {
   try {
-    localStorage.setItem(localKey(toolId, key), JSON.stringify(value));
+    localStorage.setItem(localKey(toolId, memory_key), JSON.stringify(value));
   } catch (err) {
     console.warn('[Memory] localStorage write failed:', err);
   }
 }
 
-function localDelete(toolId, key) {
-  localStorage.removeItem(localKey(toolId, key));
+function localDelete(toolId, memory_key) {
+  localStorage.removeItem(localKey(toolId, memory_key));
 }
 
 function localKeys(toolId) {
@@ -55,7 +55,7 @@ function localKeys(toolId) {
 // ── Cloud helpers (Supabase) ──────────────────────────────────────
 // Table: tool_memory (user_id, tool_id, key, value)
 
-async function cloudGet(toolId, key) {
+async function cloudGet(toolId, memory_key) {
   const db = Supabase.client();
   if (!db || !Auth.user) return undefined;
 
@@ -64,14 +64,14 @@ async function cloudGet(toolId, key) {
     .select('value')
     .eq('user_id', Auth.user.id)
     .eq('tool_id', toolId)
-    .eq('key', key)
+    .eq('key', memory_key)
     .maybeSingle();
 
   if (error) { console.warn('[Memory] cloud get error:', error.message); return undefined; }
   return data?.value; // already JSON in DB
 }
 
-async function cloudSet(toolId, key, value) {
+async function cloudSet(toolId, memory_key, value) {
   const db = Supabase.client();
   if (!db || !Auth.user) return;
 
@@ -85,7 +85,7 @@ async function cloudSet(toolId, key, value) {
   if (error) console.warn('[Memory] cloud set error:', error.message);
 }
 
-async function cloudDelete(toolId, key) {
+async function cloudDelete(toolId, memory_key) {
   const db = Supabase.client();
   if (!db || !Auth.user) return;
 
@@ -94,7 +94,7 @@ async function cloudDelete(toolId, key) {
     .delete()
     .eq('user_id', Auth.user.id)
     .eq('tool_id', toolId)
-    .eq('key', key);
+    .eq('key', memory_key);
 
   if (error) console.warn('[Memory] cloud delete error:', error.message);
 }
@@ -110,17 +110,17 @@ function createScope(toolId) {
      * @param {boolean} [opts.cloud=false]  Force a cloud fetch (async)
      * @returns {any|Promise<any>}
      */
-    get(key, { cloud = false } = {}) {
+    get(memory_key, { cloud = false } = {}) {
       if (cloud && Auth.user) {
-        return cloudGet(toolId, key).then(cloudVal => {
+        return cloudGet(toolId, memory_key).then(cloudVal => {
           if (cloudVal !== undefined) {
-            localSet(toolId, key, cloudVal); // hydrate local
+            localSet(toolId, memory_key, cloudVal); // hydrate local
             return cloudVal;
           }
-          return localGet(toolId, key);
+          return localGet(toolId, memory_key);
         });
       }
-      return localGet(toolId, key);
+      return localGet(toolId, memory_key);
     },
 
     /**
@@ -128,18 +128,18 @@ function createScope(toolId) {
      * @param {string} key
      * @param {any} value
      */
-    set(key, value) {
-      localSet(toolId, key, value);
-      if (Auth.user) cloudSet(toolId, key, value); // fire-and-forget
+    set(memory_key, value) {
+      localSet(toolId, memory_key, value);
+      if (Auth.user) cloudSet(toolId, memory_key, value); // fire-and-forget
     },
 
     /**
      * Delete a value from both layers.
      * @param {string} key
      */
-    delete(key) {
-      localDelete(toolId, key);
-      if (Auth.user) cloudDelete(toolId, key);
+    delete(memory_key) {
+      localDelete(toolId, memory_key);
+      if (Auth.user) cloudDelete(toolId, memory_key);
     },
 
     /**
@@ -155,7 +155,7 @@ function createScope(toolId) {
      */
     clear() {
       for (const key of localKeys(toolId)) {
-        localDelete(toolId, key);
+        localDelete(toolId, memory_key);
       }
     },
   };
