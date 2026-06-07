@@ -33,9 +33,9 @@ function localGet(toolId, memory_key) {
   }
 }
 
-function localSet(toolId, memory_key, value) {
+function localSet(toolId, memory_key, memory_value) {
   try {
-    localStorage.setItem(localKey(toolId, memory_key), JSON.stringify(value));
+    localStorage.setItem(localKey(toolId, memory_key), JSON.stringify(memory_value));
   } catch (err) {
     console.warn('[Memory] localStorage write failed:', err);
   }
@@ -53,7 +53,7 @@ function localKeys(toolId) {
 }
 
 // ── Cloud helpers (Supabase) ──────────────────────────────────────
-// Table: tool_memory (user_id, tool_id, key, value)
+// Table: tool_memory (user_id, tool_id, memory_key, memory_value)
 
 async function cloudGet(toolId, memory_key) {
   const db = Supabase.client();
@@ -61,24 +61,24 @@ async function cloudGet(toolId, memory_key) {
 
   const { data, error } = await db
     .from('tool_memory')
-    .select('value')
+    .select('memory_value')
     .eq('user_id', Auth.user.id)
     .eq('tool_id', toolId)
-    .eq('key', memory_key)
+    .eq('memory_key', memory_key)
     .maybeSingle();
 
   if (error) { console.warn('[Memory] cloud get error:', error.message); return undefined; }
-  return data?.value; // already JSON in DB
+  return data?.memory_value; // already JSON in DB
 }
 
-async function cloudSet(toolId, memory_key, value) {
+async function cloudSet(toolId, memory_key, memory_value) {
   const db = Supabase.client();
   if (!db || !Auth.user) return;
 
   const { error } = await db
     .from('tool_memory')
     .upsert(
-      { user_id: Auth.user.id, tool_id: toolId, key, value },
+      { user_id: Auth.user.id, tool_id: toolId, memory_key, memory_value },
       { onConflict: 'user_id,tool_id,key' }
     );
 
@@ -94,7 +94,7 @@ async function cloudDelete(toolId, memory_key) {
     .delete()
     .eq('user_id', Auth.user.id)
     .eq('tool_id', toolId)
-    .eq('key', memory_key);
+    .eq('memory_key', memory_key);
 
   if (error) console.warn('[Memory] cloud delete error:', error.message);
 }
@@ -128,9 +128,9 @@ function createScope(toolId) {
      * @param {string} key
      * @param {any} value
      */
-    set(memory_key, value) {
-      localSet(toolId, memory_key, value);
-      if (Auth.user) cloudSet(toolId, memory_key, value); // fire-and-forget
+    set(memory_key, memory_value) {
+      localSet(toolId, memory_key, memory_value);
+      if (Auth.user) cloudSet(toolId, memory_key, memory_value); // fire-and-forget
     },
 
     /**
