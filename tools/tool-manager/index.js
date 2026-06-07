@@ -93,8 +93,9 @@ function normalizeDraft(raw = {}) {
 }
 
 function normalizeToolMeta(draft) {
+  const generatedId = slugify(draft.name || 'new-tool');
   return {
-    id: String(draft.id || '').trim(),
+    id: draft.selectedToolId || generatedId,
     name: String(draft.name || '').trim(),
     description: '',
     category: String(draft.category || 'tools').trim() || 'tools',
@@ -108,13 +109,14 @@ function normalizeToolMeta(draft) {
 function buildReviewMessage({ userId, draft }) {
   const scope = userId ? 'cloud save' : 'local draft';
   const action = userId ? 'save this tool to your library' : 'keep this draft in this browser';
+  const displayId = draft.selectedToolId || slugify(draft.name || 'new-tool');
   return `
     <div class="tool-manager-review-copy">
       <div class="tool-manager-review-title">Review before you ${userId ? 'save' : 'keep'}</div>
       <div class="tool-manager-review-meta">${escapeHtml(scope)} is about to ${escapeHtml(action)}.</div>
       <ul class="tool-manager-review-list">
         <li><strong>Name:</strong> ${escapeHtml(draft.name || 'Untitled tool')}</li>
-        <li><strong>Id:</strong> ${escapeHtml(draft.id || 'new-tool')}</li>
+        <li><strong>Slug Id:</strong> ${escapeHtml(displayId)}</li>
         <li><strong>Category:</strong> ${escapeHtml(draft.category || 'tools')}</li>
         <li><strong>Commit:</strong> ${escapeHtml(draft.commit_message || 'update tool')}</li>
       </ul>
@@ -156,28 +158,12 @@ export default {
                   <input id="tool-manager-name" type="text" placeholder="Tool name" />
                 </div>
                 <div class="field">
-                  <label for="tool-manager-id">Id</label>
-                  <input id="tool-manager-id" type="text" placeholder="tool-id" />
-                </div>
-                <div class="field">
                   <label for="tool-manager-category">Category</label>
                   <input id="tool-manager-category" type="text" placeholder="tools" />
                 </div>
                 <div class="field">
                   <label for="tool-manager-commit">Commit message</label>
                   <input id="tool-manager-commit" type="text" placeholder="update tool" />
-                </div>
-              </div>
-
-              <div class="tool-manager-ai">
-                <div class="tool-manager-ai-head">
-                  <div>
-                    <div class="tool-manager-label">Templates</div>
-                    <div class="tool-manager-title">Quick Start</div>
-                  </div>
-                </div>
-                <div class="tool-manager-ai-actions" style="margin-top: 12px;">
-                  <button id="tool-manager-starter" class="btn btn-secondary" type="button">Insert Starter HTML</button>
                 </div>
               </div>
 
@@ -244,13 +230,11 @@ export default {
     const previewEl = container.querySelector('#tool-manager-preview');
     const statusEl = container.querySelector('#tool-manager-status');
     const nameEl = container.querySelector('#tool-manager-name');
-    const idEl = container.querySelector('#tool-manager-id');
     const categoryEl = container.querySelector('#tool-manager-category');
     const commitEl = container.querySelector('#tool-manager-commit');
     const newBtn = container.querySelector('#tool-manager-new');
     const previewSaveBtn = container.querySelector('#tool-manager-preview-save');
     const importBtn = container.querySelector('#tool-manager-import');
-    const starterBtn = container.querySelector('#tool-manager-starter');
     const fileInput = container.querySelector('#tool-manager-file');
     const reviewEl = container.querySelector('#tool-manager-review');
     const reviewCopyEl = container.querySelector('#tool-manager-review-copy');
@@ -288,21 +272,20 @@ export default {
       statusEl.dataset.tone = tone;
     }
 
-    function setForm(tool = {}, { lockId = false, persist = true } = {}) {
+    function setForm(tool = {}, { persist = true } = {}) {
       nameEl.value = tool.name || '';
-      idEl.value = tool.id || '';
-      idEl.readOnly = lockId;
       categoryEl.value = tool.category || 'tools';
       commitEl.value = tool.commit_message || 'new tool';
       if (persist) scheduleDraftSave();
     }
 
     function readDraft() {
+      const currentId = selectedToolId || slugify(nameEl.value || 'new-tool');
       return normalizeDraft({
         mode: selectedToolId ? 'tool' : 'draft',
         selectedToolId,
         name: nameEl.value,
-        id: idEl.value,
+        id: currentId,
         category: categoryEl.value,
         commit_message: commitEl.value,
         html: editorEl.value,
@@ -312,7 +295,7 @@ export default {
     function applyDraft(nextDraft, { persist = false } = {}) {
       draft = normalizeDraft(nextDraft);
       selectedToolId = draft.selectedToolId;
-      setForm(draft, { lockId: draft.mode === 'tool' && !!draft.selectedToolId, persist: false });
+      setForm(draft, { persist: false });
       setEditor(draft.html || STARTER_HTML, { persist: false });
       if (draft.mode === 'tool' && draft.selectedToolId) {
         setStatus(`editing ${draft.name || draft.selectedToolId}`);
@@ -466,7 +449,7 @@ export default {
       }
       selectedToolId = toolId;
       renderToolList();
-      setForm(tool, { lockId: true, persist: false });
+      setForm(tool, { persist: false });
       try {
         const html = await ToolLibrary.loadToolHtml(userId, toolId, tool.config?.entry_file || ToolLibrary.entryFile);
         setEditor(html || STARTER_HTML, { persist: false });
@@ -474,7 +457,7 @@ export default {
           mode: 'tool',
           selectedToolId: toolId,
           name: tool.name,
-          id: tool.id,
+          id: toolId,
           category: tool.category,
           commit_message: tool.commit_message || 'update tool',
           html: html || STARTER_HTML,
@@ -503,7 +486,7 @@ export default {
       });
       renderToolList();
       renderVersions();
-      setForm(draft, { lockId: false, persist: false });
+      setForm(draft, { persist: false });
       setEditor(STARTER_HTML, { persist: false });
       setStatus('new draft');
       scheduleDraftSave(true);
@@ -543,8 +526,8 @@ export default {
         return;
       }
 
-      if (!snapshot.id || !snapshot.name) {
-        context.toast('tool name and id are required', 'error');
+      if (!snapshot.name) {
+        context.toast('tool name is required', 'error');
         return;
       }
 
@@ -552,23 +535,26 @@ export default {
       reviewConfirmBtn.disabled = true;
       setStatus('saving');
 
+      const targetMeta = normalizeToolMeta(snapshot);
+
       try {
         const result = await ToolLibrary.saveTool(userId, {
-          ...normalizeToolMeta(snapshot),
+          ...targetMeta,
           icon: '*',
         }, html);
         
-        selectedToolId = snapshot.id;
+        selectedToolId = targetMeta.id;
         draft = normalizeDraft({
           ...snapshot,
           mode: 'tool',
-          selectedToolId: snapshot.id,
+          id: targetMeta.id,
+          selectedToolId: targetMeta.id,
           html,
         });
         scheduleDraftSave(true);
         context.toast(`saved ${snapshot.name}`, 'success');
         closeReviewModal();
-        await refreshTools(result.toolId || snapshot.id);
+        await refreshTools(result.toolId || targetMeta.id);
       } catch (error) {
         console.error(error);
         context.toast(error.message || 'save failed', 'error');
@@ -634,7 +620,7 @@ export default {
         setForm({
           category: 'tools',
           commit_message: 'new tool',
-        }, { lockId: false, persist: false });
+        }, { persist: false });
         setEditor(STARTER_HTML, { persist: false });
         renderVersions();
         setStatus('new draft');
@@ -652,14 +638,9 @@ export default {
       scheduleDraftSave();
     });
 
-    [nameEl, idEl, categoryEl, commitEl].forEach(el => {
+    [nameEl, categoryEl, commitEl].forEach(el => {
       el.addEventListener('input', () => {
-        if (el === nameEl || el === categoryEl || el === commitEl) {
-          setPreview(editorEl.value);
-        }
-        if (el === nameEl && !selectedToolId) {
-          idEl.value = slugify(nameEl.value || 'new-tool');
-        }
+        setPreview(editorEl.value);
         if (el === commitEl) {
           setStatus('editing');
         }
@@ -676,21 +657,6 @@ export default {
       setEditor(html, { persist: true });
       setStatus(`imported ${file.name}`);
       fileInput.value = '';
-    });
-
-    starterBtn.addEventListener('click', () => {
-      setForm({
-        name: '',
-        id: '',
-        category: 'tools',
-        commit_message: 'new tool',
-      }, { lockId: false, persist: false });
-      setEditor(STARTER_HTML, { persist: true });
-      selectedToolId = null;
-      selectedVersionRows = [];
-      renderToolList();
-      renderVersions();
-      setStatus('starter inserted');
     });
 
     newBtn.addEventListener('click', resetForNewTool);
@@ -717,7 +683,7 @@ export default {
       setForm({
         category: 'tools',
         commit_message: 'new tool',
-      }, { lockId: false, persist: false });
+      }, { persist: false });
       setEditor(STARTER_HTML, { persist: false });
       draft = await loadDraft();
       applyDraft(draft, { persist: false });
