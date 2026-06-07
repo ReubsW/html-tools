@@ -86,7 +86,9 @@ Registry.register(MyTool);
 
 That's it. The sidebar, routing, memory, and file access are all provided automatically.
 
-For an HTML tool, open Tool Manager, paste or import the HTML, preview it, then save it to the library. The saved tool becomes a normal sidebar item and is reloaded from Supabase on sign-in.
+For an HTML tool, open Tool Manager, paste or import the HTML, preview it, then review and save it to the library. If you are signed out, the manager keeps a local draft in this browser and prompts you to sign in before syncing it to Supabase.
+
+The Tool Manager also includes an AI draft generator. It calls `/api/tool-manager/generate`, which expects an `OPENAI_API_KEY` on the server or local dev environment. You can optionally set `OPENAI_MODEL` to choose a different model.
 
 ---
 
@@ -148,3 +150,4 @@ if you want to avoid committing `env.js` (recommended for any shared/public repo
 - **Memory is local-first.** localStorage always works; cloud syncs in the background when the user is signed in.
 - **Tools are plain objects.** No base class, no constructor. Just `{ id, name, render }`.
 - **Auth is optional.** Every tool works offline with localStorage; cloud persistence activates on sign-in.
+- **Tool Manager drafts are local-first.** Unsigned users can keep working, but cloud publishing and version history require sign-in.

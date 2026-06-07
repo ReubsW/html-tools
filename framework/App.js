@@ -67,7 +67,7 @@ function registerStaticTools() {
 
 function renderNav() {
   const nav = document.getElementById('tool-nav');
-  const tools = Registry.all();
+  const tools = Registry.all().filter(tool => tool.id !== 'tool-manager' || !!Auth.user);
 
   if (!nav) return;
 
