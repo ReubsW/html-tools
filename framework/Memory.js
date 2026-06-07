@@ -61,14 +61,14 @@ async function cloudGet(toolId, key) {
 
   const { data, error } = await db
     .from('tool_memory')
-    .select('memory_value')
+    .select('value')
     .eq('user_id', Auth.user.id)
-    .eq('tool_slug', toolId)
-    .eq('memory_key', key)
+    .eq('tool_id', toolId)
+    .eq('key', key)
     .maybeSingle();
 
   if (error) { console.warn('[Memory] cloud get error:', error.message); return undefined; }
-  return data?.memory_value; // already JSON in DB
+  return data?.value; // already JSON in DB
 }
 
 async function cloudSet(toolId, key, value) {
@@ -78,8 +78,8 @@ async function cloudSet(toolId, key, value) {
   const { error } = await db
     .from('tool_memory')
     .upsert(
-      { user_id: Auth.user.id, tool_slug: toolId, memory_key: key, memory_value: value },
-      { onConflict: 'user_id,tool_slug,memory_key' }
+      { user_id: Auth.user.id, tool_id: toolId, key, value },
+      { onConflict: 'user_id,tool_id,key' }
     );
 
   if (error) console.warn('[Memory] cloud set error:', error.message);
@@ -93,8 +93,8 @@ async function cloudDelete(toolId, key) {
     .from('tool_memory')
     .delete()
     .eq('user_id', Auth.user.id)
-    .eq('tool_slug', toolId)
-    .eq('memory_key', key);
+    .eq('tool_id', toolId)
+    .eq('key', key);
 
   if (error) console.warn('[Memory] cloud delete error:', error.message);
 }

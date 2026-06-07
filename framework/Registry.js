@@ -30,6 +30,25 @@ export const Registry = {
   },
 
   /**
+   * Register or replace a tool by id.
+   * Useful for dynamic tools that may reload at runtime.
+   * @param {Object} tool
+   */
+  upsert(tool) {
+    if (!tool?.id) throw new Error('[Registry] tool must have an id');
+    if (!tool?.render) throw new Error(`[Registry] tool "${tool.id}" must have a render() function`);
+    _tools.set(tool.id, tool);
+  },
+
+  /**
+   * Remove a tool by id.
+   * @param {string} id
+   */
+  remove(id) {
+    _tools.delete(id);
+  },
+
+  /**
    * Get a tool by id.
    * @param {string} id
    * @returns {Object|undefined}

@@ -12,6 +12,9 @@ html-tools/
 ├── env.js                  Supabase credentials (gitignored)
 ├── vercel.json             Static site routing
 ├── supabase-schema.sql     Database setup (run once)
+├── package.json            Local dev server script
+├── scripts/dev-server.mjs  Dependency-free static server
+├── docs/workspace-setup.md  Working notes for the current checkout
 │
 ├── public/
 │   └── app.css             All shared styles + design system
@@ -24,6 +27,7 @@ html-tools/
 │   ├── Files.js            Supabase Storage abstraction
 │   ├── Auth.js             Google OAuth via Supabase
 │   ├── Supabase.js         Supabase client singleton
+│   ├── ToolLibrary.js      HTML tool storage + versions + runtime loader
 │   └── Toast.js            Notification helper
 │
 ├── utils/
@@ -44,7 +48,12 @@ html-tools/
 
 ## Adding a new tool
 
-1. Create `tools/my-tool/index.js`:
+The app supports two layers of tools:
+
+- Static JS tools live in `tools/` and are registered at startup.
+- Saved HTML tools are created in the Tool Manager, previewed in an iframe, and stored in Supabase Storage.
+
+For a static JS tool, create `tools/my-tool/index.js`:
 
 ```js
 export default {
@@ -76,6 +85,10 @@ Registry.register(MyTool);
 ```
 
 That's it. The sidebar, routing, memory, and file access are all provided automatically.
+
+For an HTML tool, open Tool Manager, paste or import the HTML, preview it, then review and save it to the library. If you are signed out, the manager keeps a local draft in this browser and prompts you to sign in before syncing it to Supabase.
+
+The Tool Manager also includes an AI draft generator. It calls `/api/tool-manager/generate`, which expects an `OPENAI_API_KEY` on the server or local dev environment. You can optionally set `OPENAI_MODEL` to choose a different model.
 
 ---
 
@@ -137,3 +150,4 @@ if you want to avoid committing `env.js` (recommended for any shared/public repo
 - **Memory is local-first.** localStorage always works; cloud syncs in the background when the user is signed in.
 - **Tools are plain objects.** No base class, no constructor. Just `{ id, name, render }`.
 - **Auth is optional.** Every tool works offline with localStorage; cloud persistence activates on sign-in.
+- **Tool Manager drafts are local-first.** Unsigned users can keep working, but cloud publishing and version history require sign-in.

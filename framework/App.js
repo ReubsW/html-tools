@@ -13,6 +13,8 @@ import RentChecker from '../tools/rent-checker/index.js';
 import VacationPlanner from '../tools/vacation-planner/index.js';
 import ToolManager from '../tools/tool-manager/index.js';
 
+let navListenerBound = false;
+
 async function init() {
   console.log('[App] booting...');
 
@@ -43,6 +45,10 @@ async function init() {
       await DynamicToolLoader.init(user);
       HotReloadManager.start(user);
       renderNav();
+    } else {
+      DynamicToolLoader.clear();
+      HotReloadManager.stop();
+      renderNav();
     }
   });
 
@@ -61,7 +67,7 @@ function registerStaticTools() {
 
 function renderNav() {
   const nav = document.getElementById('tool-nav');
-  const tools = Registry.all();
+  const tools = Registry.all().filter(tool => tool.id !== 'tool-manager' || !!Auth.user);
 
   if (!nav) return;
 
@@ -101,7 +107,11 @@ function renderNav() {
     }
   }
 
-  window.addEventListener('hashchange', updateActiveNav);
+  if (!navListenerBound) {
+    window.addEventListener('hashchange', updateActiveNav);
+    navListenerBound = true;
+  }
+
   updateActiveNav();
 }
 

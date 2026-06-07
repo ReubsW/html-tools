@@ -1,10 +1,12 @@
-import { Supabase } from './framework/Supabase.js';
-import { Files } from './framework/Files.js';
 import { Registry } from './framework/Registry.js';
-import { Sandbox } from './sandbox/Sandbox.js';
+import { ToolLibrary } from './framework/ToolLibrary.js';
+
+const loadedDynamicToolIds = new Set();
 
 export const DynamicToolLoader = {
   async init(user) {
+    this.clear();
+
     if (!user) return;
 
     const tools = await this.loadActiveTools(user.id);
@@ -15,32 +17,20 @@ export const DynamicToolLoader = {
   },
 
   async loadActiveTools(userId) {
-    const { data } = await Supabase.client()
-      .from('tools')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true);
-
-    return data;
+    return ToolLibrary.listActiveTools(userId);
   },
 
   async loadTool(user, toolMeta) {
-    const file = await Files.download(toolMeta.config.path);
-    const code = await file.text();
+    const runtimeTool = await ToolLibrary.createRuntimeTool(user.id, toolMeta);
+    Registry.upsert(runtimeTool);
+    loadedDynamicToolIds.add(runtimeTool.id);
+  },
 
-    const blob = new Blob([code], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
+  clear() {
+    for (const id of loadedDynamicToolIds) {
+      Registry.remove(id);
+    }
 
-    const module = await import(url);
-
-    const wrapped = {
-      ...module.default,
-
-      async render(container, context) {
-        return Sandbox.run(module.default, container, context);
-      }
-    };
-
-    Registry.register(wrapped.id, wrapped);
+    loadedDynamicToolIds.clear();
   }
 };

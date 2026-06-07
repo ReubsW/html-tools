@@ -1,6 +1,5 @@
-import { Supabase } from './framework/Supabase.js';
 import { Registry } from './framework/Registry.js';
-import { Files } from './framework/Files.js';
+import { ToolLibrary } from './framework/ToolLibrary.js';
 
 export const HotReloadManager = {
   interval: null,
@@ -9,20 +8,21 @@ export const HotReloadManager = {
   start(user) {
     if (!user) return;
 
+    this.stop();
     this.interval = setInterval(() => this.check(user), 5000);
   },
 
   stop() {
-    clearInterval(this.interval);
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
   },
 
   async check(user) {
-    const { data } = await Supabase.client()
-      .from('tools')
-      .select('id, version')
-      .eq('user_id', user.id);
+    const data = await ToolLibrary.listActiveTools(user.id);
 
-    for (const tool of data) {
+    for (const tool of data ?? []) {
       const prev = this.lastVersions.get(tool.id);
 
       if (prev !== tool.version) {
@@ -33,16 +33,7 @@ export const HotReloadManager = {
   },
 
   async reload(userId, tool) {
-    const path = `_registry/${userId}/${tool.id}.js`;
-
-    const file = await Files.download(path);
-    const code = await file.text();
-
-    const blob = new Blob([code], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-
-    const module = await import(url + `?t=${Date.now()}`);
-
-    Registry.register(module.default.id, module.default);
+    const runtimeTool = await ToolLibrary.createRuntimeTool(userId, tool);
+    Registry.upsert(runtimeTool);
   }
 };
