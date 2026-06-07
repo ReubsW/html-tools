@@ -644,10 +644,23 @@ export default {
 
       try {
         setStatus('reverting');
-        await ToolLibrary.deleteTool(userId, selectedToolId);
+        
+        if (typeof ToolLibrary.deleteTool === 'function') {
+          await ToolLibrary.deleteTool(userId, selectedToolId);
+        } else if (ToolLibrary.client?.from) {
+          const { error } = await ToolLibrary.client
+            .from('tools')
+            .delete()
+            .eq('id', selectedToolId)
+            .eq('user_id', userId);
+            
+          if (error) throw error;
+        } else {
+          throw new Error('No deletion method available on ToolLibrary');
+        }
+
         context.toast(`Reverted ${currentTool.name} to default`, 'success');
         
-        // Target the baseline stock slug object variant for the selection redirection
         selectedToolId = currentTool.slug;
         await refreshTools(selectedToolId);
       } catch (error) {
@@ -677,14 +690,10 @@ export default {
         return;
       }
 
-      // 1. Fetch user-owned entries from database library
       const rawUserRows = await ToolLibrary.listActiveTools(userId) || [];
-      
-      // 2. Identify which core default configurations haven't been overridden yet
       const overriddenSlugs = rawUserRows.map(r => r.slug);
       const remainingDefaults = APP_DEFAULTS.filter(def => !overriddenSlugs.includes(def.slug));
 
-      // 3. Merge active database items and pristine default entries into one unified list
       toolRows = [...rawUserRows, ...remainingDefaults];
       renderToolList();
 
