@@ -324,7 +324,7 @@ export default {
       if (persist) scheduleDraftSave(true);
     }
 
-    尊unction scheduleDraftSave(immediate = false) {
+    function scheduleDraftSave(immediate = false) {
       draft = normalizeDraft(readDraft());
       if (saveTimer) {
         clearTimeout(saveTimer);
