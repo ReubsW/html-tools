@@ -573,7 +573,7 @@ export default {
         console.error(error);
         context.toast(error.message || 'save failed', 'error');
         setStatus('save failed', 'error');
-      } finaly {
+      } finally {
         previewSaveBtn.disabled = false;
         reviewConfirmBtn.disabled = false;
       }
