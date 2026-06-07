@@ -160,7 +160,7 @@ function extractResponseText(responseJson) {
 
 async function generateToolDraft({
   apiKey,
-  model = 'gpt-4.1-mini',
+  model = 'gpt-4o-mini',
   prompt,
   currentHtml = '',
   currentTool = {},
