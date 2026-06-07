@@ -27,6 +27,9 @@ const STARTER_HTML = `<!doctype html>
 
 const DRAFT_KEY = 'draft';
 
+// Define known core app defaults to manage visibility of the Revert button
+const KNOWN_DEFAULTS = ['calculator', 'json-formatter', 'color-picker'];
+
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -95,8 +98,8 @@ function normalizeDraft(raw = {}) {
 function normalizeToolMeta(draft) {
   const generatedSlug = slugify(draft.name || 'new-tool');
   return {
-    id: draft.selectedToolId || undefined, // Send UUID if editing, let DB auto-gen if new
-    slug: generatedSlug,                   // Maps to your 'slug' column
+    id: draft.selectedToolId || undefined, 
+    slug: generatedSlug,                   
     name: String(draft.name || '').trim(),
     description: '',
     category: String(draft.category || 'tools').trim() || 'tools',
@@ -171,6 +174,7 @@ export default {
               <div class="tool-manager-actions">
                 <input id="tool-manager-file" type="file" accept=".html,.htm,text/html" hidden />
                 <button id="tool-manager-import" class="btn btn-secondary" type="button">Import HTML</button>
+                <button id="tool-manager-revert" class="btn btn-danger" type="button" hidden>Revert to Default</button>
                 <button id="tool-manager-preview-save" class="btn btn-primary" type="button">Review & Save</button>
               </div>
             </div>
@@ -235,6 +239,7 @@ export default {
     const commitEl = container.querySelector('#tool-manager-commit');
     const newBtn = container.querySelector('#tool-manager-new');
     const previewSaveBtn = container.querySelector('#tool-manager-preview-save');
+    const revertBtn = container.querySelector('#tool-manager-revert');
     const importBtn = container.querySelector('#tool-manager-import');
     const fileInput = container.querySelector('#tool-manager-file');
     const reviewEl = container.querySelector('#tool-manager-review');
@@ -292,11 +297,27 @@ export default {
       });
     }
 
+    function updateRevertButtonVisibility(toolSlug) {
+      if (selectedToolId && KNOWN_DEFAULTS.includes(toolSlug)) {
+        revertBtn.hidden = false;
+      } else {
+        revertBtn.hidden = true;
+      }
+    }
+
     function applyDraft(nextDraft, { persist = false } = {}) {
       draft = normalizeDraft(nextDraft);
       selectedToolId = draft.selectedToolId;
       setForm(draft, { persist: false });
       setEditor(draft.html || STARTER_HTML, { persist: false });
+      
+      const currentTool = toolRows.find(row => row.id === selectedToolId);
+      if (currentTool) {
+        updateRevertButtonVisibility(currentTool.slug);
+      } else {
+        revertBtn.hidden = true;
+      }
+
       if (draft.mode === 'tool' && draft.selectedToolId) {
         setStatus(`editing ${draft.name || draft.selectedToolId}`);
       } else {
@@ -450,6 +471,8 @@ export default {
       selectedToolId = toolId;
       renderToolList();
       setForm(tool, { persist: false });
+      updateRevertButtonVisibility(tool.slug);
+
       try {
         const html = await ToolLibrary.loadToolHtml(userId, toolId, tool.config?.entry_file || ToolLibrary.entryFile);
         setEditor(html || STARTER_HTML, { persist: false });
@@ -475,6 +498,7 @@ export default {
     function resetForNewTool() {
       selectedToolId = null;
       selectedVersionRows = [];
+      revertBtn.hidden = true;
       draft = normalizeDraft({
         mode: 'draft',
         selectedToolId: null,
@@ -568,10 +592,33 @@ export default {
       }
     }
 
+    async function handleRevertToDefault() {
+      if (!selectedToolId) return;
+
+      const currentTool = toolRows.find(row => row.id === selectedToolId);
+      if (!currentTool) return;
+
+      const confirmRevert = confirm(`Are you sure you want to discard your iterations on "${currentTool.name}" and revert back to the pristine default setup?`);
+      if (!confirmRevert) return;
+
+      try {
+        setStatus('reverting');
+        await ToolLibrary.deleteTool(userId, selectedToolId);
+        context.toast(`Reverted ${currentTool.name} to default`, 'success');
+        selectedToolId = null;
+        await refreshTools();
+      } catch (error) {
+        console.error(error);
+        context.toast(error.message || 'failed to revert tool', 'error');
+        setStatus('revert failed', 'error');
+      }
+    }
+
     async function refreshTools(nextToolId = null) {
       if (!isSignedIn) {
         toolRows = [];
         selectedVersionRows = [];
+        revertBtn.hidden = true;
         renderToolList();
         renderVersions();
         const storedDraft = await loadDraft();
@@ -620,6 +667,7 @@ export default {
       } else {
         selectedToolId = null;
         selectedVersionRows = [];
+        revertBtn.hidden = true;
         setForm({
           category: 'tools',
           commit_message: 'new tool',
@@ -663,6 +711,7 @@ export default {
     });
 
     newBtn.addEventListener('click', resetForNewTool);
+    revertBtn.addEventListener('click', handleRevertToDefault);
 
     previewSaveBtn.addEventListener('click', () => {
       openReviewModal(isSignedIn ? 'cloud' : 'local');
