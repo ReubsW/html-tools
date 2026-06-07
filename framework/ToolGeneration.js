@@ -169,15 +169,20 @@ async function generateToolDraft({
     throw new Error('OpenAI API key is not configured');
   }
 
+  // 1. Format the body correctly using OpenAI's expected structure
   const body = {
     model,
-    input: buildGenerationPrompt({ prompt, currentHtml, currentTool }),
-    text: {
-      format: TOOL_GENERATION_SCHEMA,
-    },
+    messages: [
+      {
+        role: 'user',
+        content: buildGenerationPrompt({ prompt, currentHtml, currentTool })
+      }
+    ],
+    response_format: TOOL_GENERATION_SCHEMA // Use response_format, not text.format
   };
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
+  // 2. Point to the correct /chat/completions endpoint
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -193,7 +198,8 @@ async function generateToolDraft({
     throw new Error(message);
   }
 
-  const text = extractResponseText(responseJson);
+  // 3. Extract the response from choices[0].message.content
+  const text = responseJson?.choices?.[0]?.message?.content;
   if (!text) {
     throw new Error('OpenAI returned an empty response');
   }
