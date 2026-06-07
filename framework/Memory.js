@@ -53,7 +53,7 @@ function localKeys(id) {
 }
 
 // ── Cloud helpers (Supabase) ──────────────────────────────────────
-// Table: tool_memory (user_id, tool_id, memory_key, memory_value)
+// Table: tool_memory (user_id, id, memory_key, memory_value)
 
 async function cloudGet(id, memory_key) {
   const db = Supabase.client();
@@ -63,7 +63,7 @@ async function cloudGet(id, memory_key) {
     .from('tool_memory')
     .select('memory_value')
     .eq('user_id', Auth.user.id)
-    .eq('tool_id', id)
+    .eq('id', id)
     .eq('memory_key', memory_key)
     .maybeSingle();
 
@@ -78,8 +78,8 @@ async function cloudSet(id, memory_key, memory_value) {
   const { error } = await db
     .from('tool_memory')
     .upsert(
-      { user_id: Auth.user.id, tool_id: id, memory_key, memory_value },
-      { onConflict: 'user_id,tool_id,key' }
+      { user_id: Auth.user.id, id: id, memory_key, memory_value },
+      { onConflict: 'user_id,id,key' }
     );
 
   if (error) console.warn('[Memory] cloud set error:', error.message);
@@ -93,7 +93,7 @@ async function cloudDelete(id, memory_key) {
     .from('tool_memory')
     .delete()
     .eq('user_id', Auth.user.id)
-    .eq('tool_id', id)
+    .eq('id', id)
     .eq('memory_key', memory_key);
 
   if (error) console.warn('[Memory] cloud delete error:', error.message);
