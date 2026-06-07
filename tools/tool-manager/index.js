@@ -93,9 +93,10 @@ function normalizeDraft(raw = {}) {
 }
 
 function normalizeToolMeta(draft) {
-  const generatedId = slugify(draft.name || 'new-tool');
+  const generatedSlug = slugify(draft.name || 'new-tool');
   return {
-    id: draft.selectedToolId || generatedId,
+    id: draft.selectedToolId || undefined, // Send UUID if editing, let DB auto-gen if new
+    slug: generatedSlug,                   // Maps to your 'slug' column
     name: String(draft.name || '').trim(),
     description: '',
     category: String(draft.category || 'tools').trim() || 'tools',
@@ -109,14 +110,14 @@ function normalizeToolMeta(draft) {
 function buildReviewMessage({ userId, draft }) {
   const scope = userId ? 'cloud save' : 'local draft';
   const action = userId ? 'save this tool to your library' : 'keep this draft in this browser';
-  const displayId = draft.selectedToolId || slugify(draft.name || 'new-tool');
+  const displaySlug = slugify(draft.name || 'new-tool');
   return `
     <div class="tool-manager-review-copy">
       <div class="tool-manager-review-title">Review before you ${userId ? 'save' : 'keep'}</div>
       <div class="tool-manager-review-meta">${escapeHtml(scope)} is about to ${escapeHtml(action)}.</div>
       <ul class="tool-manager-review-list">
         <li><strong>Name:</strong> ${escapeHtml(draft.name || 'Untitled tool')}</li>
-        <li><strong>Slug Id:</strong> ${escapeHtml(displayId)}</li>
+        <li><strong>Slug Column:</strong> ${escapeHtml(displaySlug)}</li>
         <li><strong>Category:</strong> ${escapeHtml(draft.category || 'tools')}</li>
         <li><strong>Commit:</strong> ${escapeHtml(draft.commit_message || 'update tool')}</li>
       </ul>
@@ -280,12 +281,11 @@ export default {
     }
 
     function readDraft() {
-      const currentId = selectedToolId || slugify(nameEl.value || 'new-tool');
       return normalizeDraft({
         mode: selectedToolId ? 'tool' : 'draft',
         selectedToolId,
         name: nameEl.value,
-        id: currentId,
+        id: selectedToolId || '',
         category: categoryEl.value,
         commit_message: commitEl.value,
         html: editorEl.value,
@@ -543,18 +543,21 @@ export default {
           icon: '*',
         }, html);
         
-        selectedToolId = targetMeta.id;
+        const nextId = result.toolId || targetMeta.id;
+        selectedToolId = nextId;
+        
         draft = normalizeDraft({
           ...snapshot,
           mode: 'tool',
-          id: targetMeta.id,
-          selectedToolId: targetMeta.id,
+          id: nextId,
+          selectedToolId: nextId,
           html,
         });
+        
         scheduleDraftSave(true);
         context.toast(`saved ${snapshot.name}`, 'success');
         closeReviewModal();
-        await refreshTools(result.toolId || targetMeta.id);
+        await refreshTools(nextId);
       } catch (error) {
         console.error(error);
         context.toast(error.message || 'save failed', 'error');
